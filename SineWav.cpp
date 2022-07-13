@@ -75,12 +75,10 @@ void generateWavFile(int frequency, int lengthInSeconds)
         
     //data sub-chunk
     /*Subchunk2ID  */outFile << "data";
-    /*Subchunk2Size*/byteWrite(outFile, sampleRate * lengthInSeconds * 4, 4);//might have to change in some way
+    /*Subchunk2Size*/byteWrite(outFile, sampleRate * lengthInSeconds * 4, 4);
 
     /*data:        */
-    
-    //int startAudio = outFile.tellp();
-    
+
     //loop through all samples within specified length
     for (int i = 0; i < sampleRate * lengthInSeconds; i++)
     {
@@ -89,16 +87,6 @@ void generateWavFile(int frequency, int lengthInSeconds)
         int intSample = static_cast<int> (sample * maxAmplitude);
         byteWrite(outFile, intSample, bitDepth / 8);
     }
-
-    //int endAudio = outFile.tellp();
-
-    //outFile.seekp(startAudio - 4);
-
-    ///*Subchunk2Size*/byteWrite(outFile, endAudio - startAudio, 4);
-
-    //outFile.seekp(4, std::ios::beg);
-
-    ///*ChunkSize    */byteWrite(outFile, endAudio - 8, 4);
 
     outFile.close();
 }
@@ -155,6 +143,6 @@ int main()
         std::cout << "Unknown error has occurred.";
     }
 
-    std::cin.get();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cin.get();
 }
