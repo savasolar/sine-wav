@@ -121,13 +121,9 @@ int main()
     //this is where exceptions would most often occur
     try
     {
-
         std::cout << "Generating audio file..." << std::endl;
-
         generateWavFile(f, t);
-
         std::cout << "Audio file generated." << std::endl;
-
     }
     catch (int e)
     {
