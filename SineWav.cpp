@@ -1,9 +1,8 @@
 #define _USE_MATH_DEFINES
+#define _CRT_SECURE_NO_WARNINGS
 #include <cmath>
 #include <iostream>
-#include <fstream>
-#include <stdexcept>
-#include <limits>
+#include <assert.h>
 
 //Great resource! - http://soundfile.sapp.org/doc/WaveFormat/
 
@@ -11,7 +10,7 @@ const int sampleRate = 48000;
 const int bitDepth = 24;
 const int numChannels = 1;
 
-const int maxAmplitude = pow(2, bitDepth - 1) - 1;
+int maxAmplitude; //= pow(2, bitDepth - 1) - 1;
 const int maxLengthInSeconds = 4 * pow(10, 9) / sampleRate / 4 - 1;//Wav files can't be > 4GB.
 
 
@@ -35,6 +34,12 @@ public:
         //Sine wave formula: amplitude * sin(2 * M_PI * frequency / sampleRate)
         //Angle of the sine wave (2* M_PI * frequency / sampleRate) must be incremented each sample
 
+        //adjusting for more precision in int24 range (-8388608...+8388607)
+        if (amplitude < 0)
+            maxAmplitude = pow(2, bitDepth - 1);
+        else
+            maxAmplitude = -pow(2, bitDepth - 1) - 1;
+
         auto sample = amplitude * sin(angle);
         angle += offset;
         return sample;
@@ -42,10 +47,16 @@ public:
 };
 
 //Helper method -- make sure ints get saved with the right amount of bytes
-//might be necessary to use fopen and fwrite instead of ofstream
-void byteWrite(std::ofstream& file, int value, int numBytes)
+void byteWrite(FILE* file, int value, int numBytes)
 {
-    file.write(reinterpret_cast<const char*>(&value), numBytes);
+    int buf;
+    while (numBytes > 0)
+    {
+        buf = value & 0xff;
+        fwrite(&buf, 1, 1, file);
+        numBytes--;
+        value >>= 8;
+    }
 }
 
 void generateWavFile(float frequency, float lengthInSeconds)
@@ -57,19 +68,19 @@ void generateWavFile(float frequency, float lengthInSeconds)
     if (frequency > 24000)
         throw std::runtime_error("Maximum frequency exceeded.");
 
-    std::ofstream outFile;
-//    FILE* outFile = fopen("outputAudio.wav", "wb");
-    outFile.open("outputAudio.wav", std::ios::binary);
+    FILE* outFile;
+    outFile = fopen("outputAudio.wav", "wb");
+    assert(outFile);
 
     SineWave sineWave(frequency, 0.2);//sineWave object with amplitude of 0.2 (to keep your ears safe)
 
     //RIFF chunk
-    /*ChunkID      */outFile << "RIFF";
-    /*ChunkSize    */byteWrite(outFile, sampleRate * lengthInSeconds * 4, 4);//simpler than using tellp and seekp
-    /*Format       */outFile << "WAVE";
+    /*ChunkID      */fwrite("RIFF", 1, 4, outFile);
+    /*ChunkSize    */byteWrite(outFile, sampleRate * lengthInSeconds * 4, 4);
+    /*Format       */fwrite("WAVE", 1, 4, outFile);
 
     //fmt sub-chunk
-    /*Subchunk1ID  */outFile << "fmt ";
+    /*Subchunk1ID  */fwrite("fmt ", 1, 4, outFile);
     /*Subchunk1Size*/byteWrite(outFile, 16, 4);
     /*AudioFormat  */byteWrite(outFile, 1, 2);
     /*NumChannels  */byteWrite(outFile, 1, 2);
@@ -79,7 +90,7 @@ void generateWavFile(float frequency, float lengthInSeconds)
     /*BitsPerSample*/byteWrite(outFile, bitDepth, 2);
 
     //data sub-chunk
-    /*Subchunk2ID  */outFile << "data";
+    /*Subchunk2ID  */fwrite("data", 1, 4, outFile);
     /*Subchunk2Size*/byteWrite(outFile, sampleRate * lengthInSeconds * 4, 4);
 
     /*data:        */
@@ -88,12 +99,13 @@ void generateWavFile(float frequency, float lengthInSeconds)
     for (int i = 0; i < sampleRate * lengthInSeconds; i++)
     {
         //Inserting samples into WAV file, line-by-line
+
         auto sample = sineWave.processSample();
         int intSample = static_cast<int> (sample * maxAmplitude);
         byteWrite(outFile, intSample, bitDepth / 8);
     }
 
-    outFile.close();
+    fclose(outFile);
 }
 
 int main()
@@ -127,7 +139,9 @@ int main()
     try
     {
         std::cout << "Generating audio file..." << std::endl;
+
         generateWavFile(f, t);
+
         std::cout << "Audio file generated." << std::endl;
     }
     catch (std::exception const& e)
