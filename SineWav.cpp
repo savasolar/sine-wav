@@ -1,6 +1,9 @@
 #define _USE_MATH_DEFINES
+#include <cmath>
 #include <iostream>
 #include <fstream>
+#include <stdexcept>
+#include <limits>
 
 //Great resource! - http://soundfile.sapp.org/doc/WaveFormat/
 
@@ -39,22 +42,24 @@ public:
 };
 
 //Helper method -- make sure ints get saved with the right amount of bytes
+//might be necessary to use fopen and fwrite instead of ofstream
 void byteWrite(std::ofstream& file, int value, int numBytes)
 {
     file.write(reinterpret_cast<const char*>(&value), numBytes);
 }
 
-void generateWavFile(int frequency, int lengthInSeconds)
+void generateWavFile(float frequency, float lengthInSeconds)
 {
-    if (lengthInSeconds < 0)
-        throw 101;
+    if (lengthInSeconds < 0 || frequency < 0)
+        throw std::runtime_error("Cannot use negative numbers.");
     if (lengthInSeconds > maxLengthInSeconds)
-        throw 102;
-    if (frequency < 20 || frequency > 20000)
-        throw 103;
+        throw std::runtime_error("Maximum number of seconds exceeded.");
+    if (frequency > 24000)
+        throw std::runtime_error("Maximum frequency exceeded.");
 
     std::ofstream outFile;
-    outFile.open("outputAudio.wav", std::ios::binary);//File must be in binary mode
+//    FILE* outFile = fopen("outputAudio.wav", "wb");
+    outFile.open("outputAudio.wav", std::ios::binary);
 
     SineWave sineWave(frequency, 0.2);//sineWave object with amplitude of 0.2 (to keep your ears safe)
 
@@ -72,7 +77,7 @@ void generateWavFile(int frequency, int lengthInSeconds)
     /*ByteRate     */byteWrite(outFile, sampleRate * numChannels * bitDepth / 8, 4);
     /*BlockAlign   */byteWrite(outFile, numChannels * (bitDepth / 8), 2);
     /*BitsPerSample*/byteWrite(outFile, bitDepth, 2);
-        
+
     //data sub-chunk
     /*Subchunk2ID  */outFile << "data";
     /*Subchunk2Size*/byteWrite(outFile, sampleRate * lengthInSeconds * 4, 4);
@@ -94,7 +99,7 @@ void generateWavFile(int frequency, int lengthInSeconds)
 int main()
 {
     float f;
-    int t;
+    float t;
 
     std::cout << "Enter frequency in Hz:" << std::endl;
 
@@ -118,25 +123,16 @@ int main()
         std::cin >> t;
     }
 
-    //this is where exceptions would most often occur
+    //where exceptions would most often occur
     try
     {
         std::cout << "Generating audio file..." << std::endl;
         generateWavFile(f, t);
         std::cout << "Audio file generated." << std::endl;
     }
-    catch (int e)
+    catch (std::exception const& e)
     {
-        if (e == 101)
-            std::cout << "Error: Cannot use negative numbers.";
-        if (e == 102)
-            std::cout << "Error: Maximum number of seconds is " << maxLengthInSeconds << ".";
-        if (e == 103)
-            std::cout << "Error: Frequency must be between 20 and 20000.";
-    }
-    catch (...)
-    {
-        std::cout << "Unknown error has occurred.";
+        std::cout << "Error: " << e.what() << std::endl;
     }
 
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
