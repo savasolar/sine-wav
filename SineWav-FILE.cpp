@@ -10,7 +10,7 @@ const int sampleRate = 48000;
 const int bitDepth = 24;
 const int numChannels = 1;
 
-int maxAmplitude; //= pow(2, bitDepth - 1) - 1;
+int maxAmplitude;
 const int maxLengthInSeconds = 4 * pow(10, 9) / sampleRate / 4 - 1;//Wav files can't be > 4GB.
 
 
@@ -61,16 +61,18 @@ void byteWrite(FILE* file, int value, int numBytes)
 
 void generateWavFile(float frequency, float lengthInSeconds)
 {
+    FILE* outFile;
+    outFile = fopen("outputAudio.wav", "wb");
+    
+    //Error messages
+    if (outFile == NULL)
+        throw std::runtime_error("Exception opening file.");
     if (lengthInSeconds < 0 || frequency < 0)
         throw std::runtime_error("Cannot use negative numbers.");
     if (lengthInSeconds > maxLengthInSeconds)
         throw std::runtime_error("Maximum number of seconds exceeded.");
     if (frequency > 24000)
         throw std::runtime_error("Maximum frequency exceeded.");
-
-    FILE* outFile;
-    outFile = fopen("outputAudio.wav", "wb");
-    assert(outFile);
 
     SineWave sineWave(frequency, 0.2);//sineWave object with amplitude of 0.2 (to keep your ears safe)
 
@@ -139,9 +141,7 @@ int main()
     try
     {
         std::cout << "Generating audio file..." << std::endl;
-
         generateWavFile(f, t);
-
         std::cout << "Audio file generated." << std::endl;
     }
     catch (std::exception const& e)
